@@ -1,0 +1,244 @@
+
+from google.colab import files
+uploaded = files.upload()
+
+
+df = pd.read_csv('SuperStoreOrders.csv', encoding='latin1')
+df['order_date'] = pd.to_datetime(df['order_date'], errors='coerce')
+df['ship_date'] = pd.to_datetime(df['ship_date'], errors='coerce')
+display(df.head())
+
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize']=(10,6)
+
+
+
+
+
+print("\n--- Dataset Shape ---")
+print(df.shape)
+print("\n--- Column Names ---")
+print(df.columns.tolist())
+print("\n--- Data Types ---")
+print(df.dtypes)
+print("\n--- Missing Values ---")
+print(df.isnull().sum())
+print("\n--- Duplicate Rows ---")
+print(df.duplicated().sum())
+print("\n--- Basic Statistics ---")
+print(df.describe())
+
+
+
+
+
+df=df.drop_duplicates()
+
+
+
+
+
+for col in df.columns:
+    if df[col].dtype=='object':
+        df[col]=df[col].fillna('Unknown')
+    else:
+        df[col]=df[col].fillna(0)
+
+
+
+
+
+numeric_cols=['sales','quantity','discount','profit','shipping_cost']
+for col in numeric_cols:
+    df[col]=pd.to_numeric(df[col],errors='coerce')
+
+
+
+
+
+df.columns=[c.strip().lower().replace(" ", "_")for c in df.columns]
+print("\nData Cleaning Done.New Shape:",df.shape)
+
+
+
+
+
+df['order_date']=pd.to_datetime(df['order_date'],dayfirst=True,errors='coerce')
+df['year']=df['order_date'].dt.year
+df['month']=df['order_date'].dt.month
+df['month_name']=df['order_date'].dt.strftime('%b')
+df['profit_margin_pct']=np.where(df['sales']!=0,(df['profit']/df['sales'])*100,0)
+print("\nNew Features Added:")
+print(df[['order_date','year','month','month_name','profit_margin_pct']].head())
+
+
+
+
+
+
+df.to_csv("Superstore_Cleaned.csv",index=False)
+print("\nCleaned dataset saved as Superstore_Cleaned.csv")
+
+
+
+
+
+total_sales=df['sales'].sum()
+total_profit=df['profit'].sum()
+total_orders=df['order_id'].nunique()
+print(f"\nTotal Sales:{total_sales:,.2f}")
+print(f"Total Profit:{total_profit:,.2f}")
+print(f"Total Orders: {total_orders:,}")
+
+
+
+
+
+
+monthly_sales=df.groupby(['year','month','month_name'])['sales'].sum().reset_index()
+
+monthly_profit=df.groupby(['year', 'month', 'month_name'])['profit'].sum().reset_index()
+
+category_sales=df.groupby('category')['sales'].sum().sort_values(ascending=False)
+
+subcat_sales=df.groupby('sub_category')['sales'].sum().sort_values(ascending=False)
+
+top10_products=df.groupby('product_name')['sales'].sum().sort_values(ascending=False).head(10)
+
+bottom10_products=df.groupby('product_name')['sales'].sum().sort_values(ascending=True).head(10)
+
+region_sales=df.groupby('region')['sales'].sum().sort_values(ascending=False)
+
+state_sales=df.groupby('state')['sales'].sum().sort_values(ascending=False).head(10)
+
+segment_sales=df.groupby('segment')['sales'].sum().sort_values(ascending=False)
+
+print("\n--- Category Sales ---")
+print(category_sales)
+print("\n--- Top 10 Products ---")
+print(top10_products)
+print("\n--- Region-wise Sales ---")
+print(region_sales)
+print("\n--- Discount vs Profit Correlation ---")
+print(df[['discount','profit']].corr())
+
+
+
+
+
+monthly_trend=df.groupby(df['order_date'].dt.to_period('M'))['sales'].sum()
+plt.figure()
+monthly_trend.plot(kind='line',marker='o',color='#2E86AB')
+plt.title('Monthly Sales Trend')
+plt.xlabel('Month');
+plt.ylabel('Sales')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+top10_products.sort_values().plot(kind='barh',color='#F18F01')
+plt.title('Top 10 Products by Sales')
+plt.tight_layout()
+plt.show()
+
+
+
+
+plt.figure()
+category_sales.plot(kind='bar',color='#A23B72')
+plt.title('Sales by Category')
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+plt.figure()
+plt.pie(segment_sales,labels=segment_sales.index,autopct='%1.1f%%',colors=sns.color_palette('Set2'))
+plt.title('Sales by Customer Segment')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+plt.figure()
+corr_cols=['sales','quantity','discount','profit','shipping_cost','profit_margin_pct']
+sns.heatmap(df[corr_cols].corr(),annot=True,cmap='coolwarm',fmt='.2f')
+plt.title('Correlation Heatmap')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+plt.figure()
+sns.histplot(df['sales'],bins=50,color='#3B1F2B',kde=True)
+plt.title('Sales Distribution')
+plt.xlim(0,df['sales'].quantile(0.99))
+plt.tight_layout()
+plt.show()
+
+
+
+plt.figure()
+sns.boxplot(data=df,x='category',y='profit')
+plt.title('Profit Distribution by Category')
+plt.ylim(df['profit'].quantile(0.01),df['profit'].quantile(0.99))
+plt.tight_layout()
+plt.show()
+
+
+
+
+plt.figure()
+sns.scatterplot(data=df.sample(min(3000,len(df)),random_state=1),
+                x='discount',y='profit',alpha=0.4,color='#C1121F')
+plt.title('Discount (vs) Profit')
+plt.tight_layout()
+plt.show()
+
+
+
+
+highest_month=monthly_sales.loc[monthly_sales['sales'].idxmax()]
+lowest_month=monthly_sales.loc[monthly_sales['sales'].idxmin()]
+best_category=category_sales.idxmax()
+best_profit_category=df.groupby('category')['profit'].sum().idxmax()
+best_region=region_sales.idxmax()
+worst_region=region_sales.idxmin()
+loss_products=df.groupby('product_name')['profit'].sum().sort_values().head(10)
+
+print("\n= BUSINESS INSIGHTS =")
+print(f"Overall Profit Margin:{(total_profit/total_sales)*100:.2f}%")
+print(f"Highest Sales Month:{highest_month['month_name']}{int(highest_month['year'])}({highest_month['sales']:,.2f})")
+print(f"Lowest Sales Month:{lowest_month['month_name']}{int(lowest_month['year'])}({lowest_month['sales']:,.2f})")
+print(f"Best Selling Category:{best_category}")
+print(f"Highest Profit Category:{best_profit_category}")
+print(f"Best Region:{best_region}")
+print(f"Worst Region:{worst_region}")
+print("\nTop 3 Loss-Making Products:")
+print(loss_products.head(3))
+print(" ")
+
+
+
+
+files.download("Superstore_Cleaned.csv")
+
+
+
